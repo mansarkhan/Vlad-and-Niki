@@ -1,0 +1,33 @@
+name: Export M3U8 Links to TSV
+
+on:
+  push:
+    paths:
+      - '**.m3u8'
+  workflow_dispatch:  # 👈 This enables the manual "Run workflow" button in GitHub
+
+jobs:
+  generate-links-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Find all .m3u8 files and generate links.tsv
+        run: |
+          echo -e "Folder\tFile\tURL" > links.tsv
+          while IFS= read -r file; do
+            folder=$(dirname "$file")
+            name=$(basename "$file")
+            url="https://raw.githubusercontent.com/${{ github.repository }}/main/$file"
+            echo -e "$folder\t$name\t$url" >> links.tsv
+          done < <(find . -type f -name '*.m3u8' | sed 's|^\./||' | sort)
+
+      - name: 🔄 Commit and Push links.tsv
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add links.tsv
+          git commit -m "🔄 Auto-update links.tsv from GitHub Action" || exit 0
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main
